@@ -433,12 +433,20 @@ const ClientList: React.FC = () => {
       // Depois envia o QR Code como imagem
       const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(apiConfig.pixName)}&cidade=${encodeURIComponent(apiConfig.pixCity)}&valor=${numericValue.toFixed(2)}&saida=qr&chave=${encodeURIComponent(apiConfig.pixKey)}&txid=${encodeURIComponent(apiConfig.pixTxid)}`;
       
+      // Primeiro baixa a imagem e converte para base64
+      const imageResponse = await axios.get(qrCodeUrl, { responseType: 'blob' });
+      const base64Image = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(imageResponse.data);
+      });
+      
       const mediaPayload = {
         number: phoneNumber,
         mediatype: "image",
         mimetype: "image/png",
         caption: '📱 *QR Code para pagamento via PIX*',
-        media: qrCodeUrl,
+        media: base64Image,
         delay: 2,
         apikey: apiConfig.apiKey
       };
