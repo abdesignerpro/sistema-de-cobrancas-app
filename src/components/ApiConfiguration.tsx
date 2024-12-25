@@ -36,7 +36,7 @@ const PIX_KEY_TYPES = [
 
 const ApiConfiguration: React.FC = () => {
   const [config, setConfig] = useState<ApiConfig>({
-    apiUrl: 'https://evolution.abdesignerpro.com.br',
+    apiUrl: 'http://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host',
     apiKey: '',
     instanceName: 'anderson',
     pixName: '',
@@ -60,7 +60,7 @@ const ApiConfiguration: React.FC = () => {
       setConfig(config);
       
       // Envia a configuração para o backend
-      fetch(`${config.apiUrl}/api/config`, {
+      fetch('http://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,7 +96,7 @@ const ApiConfiguration: React.FC = () => {
       localStorage.setItem('apiConfig', JSON.stringify(config));
 
       // Envia para o backend
-      const response = await fetch(`${config.apiUrl}/api/config`, {
+      const response = await fetch('http://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
