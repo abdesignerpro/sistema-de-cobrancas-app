@@ -1,28 +1,23 @@
-FROM node:18-alpine
+# Build stage
+FROM node:18-alpine as build
 
-# Criar diretório da aplicação
 WORKDIR /app
 
-# Copiar package.json e package-lock.json
 COPY package*.json ./
-
-# Instalar dependências
 RUN npm install
 
-# Copiar arquivos do projeto
 COPY . .
-
-# Criar arquivo de ambiente com a URL do backend
-RUN echo "VITE_API_URL=https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host" > .env
-
-# Build da aplicação
 RUN npm run build
 
-# Instalar servidor http simples
-RUN npm install -g serve
+# Production stage
+FROM nginx:alpine
 
-# Expor porta
-EXPOSE 3000
+# Copy custom nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Iniciar servidor
-CMD ["serve", "-s", "dist", "-l", "3000"]
+# Copy built files from build stage
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
