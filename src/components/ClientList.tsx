@@ -201,8 +201,17 @@ const ClientList: React.FC = () => {
         },
         body: JSON.stringify(clients),
       })
-      .then(response => response.json())
-      .then(data => console.log('Clientes sincronizados com o backend:', data))
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Erro ao sincronizar com o backend');
+        }
+        return response.json();
+      })
+      .then(data => {
+        const updatedClients = data;
+        console.log('Clientes sincronizados com o backend:', updatedClients);
+        setClients(updatedClients);
+      })
       .catch(error => console.error('Erro ao sincronizar clientes:', error));
     } else {
       // Se não houver clientes no localStorage, tenta carregar do backend
@@ -252,6 +261,8 @@ const ClientList: React.FC = () => {
         if (!response.ok) {
           throw new Error('Erro ao sincronizar com o backend');
         }
+
+        const updatedClient = await response.json();
 
         // Depois atualiza o estado e o localStorage
         setClients(updatedClients);
@@ -323,6 +334,8 @@ const ClientList: React.FC = () => {
         if (!response.ok) {
           throw new Error('Erro ao sincronizar com o backend');
         }
+
+        const updatedClient = await response.json();
 
         // Depois atualiza o estado e o localStorage
         setClients(updatedClients);

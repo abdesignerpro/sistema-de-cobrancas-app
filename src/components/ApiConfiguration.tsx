@@ -67,8 +67,15 @@ const ApiConfiguration: React.FC = () => {
         },
         body: JSON.stringify(config),
       })
-      .then(response => response.json())
-      .then(data => console.log('Configuração enviada com sucesso:', data))
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Erro ao atualizar configuração no servidor');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Configuração salva com sucesso:', data);
+      })
       .catch(error => console.error('Erro ao enviar configuração:', error));
     }
   }, []);
@@ -107,6 +114,9 @@ const ApiConfiguration: React.FC = () => {
       if (!response.ok) {
         throw new Error('Erro ao atualizar configuração no servidor');
       }
+
+      const result = await response.json();
+      console.log('Configuração salva com sucesso:', result);
 
       setSnackbar({
         open: true,

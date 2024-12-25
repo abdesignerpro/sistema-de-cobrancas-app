@@ -124,6 +124,9 @@ Atenciosamente,
         throw new Error('Erro ao atualizar configuração no servidor');
       }
 
+      const result = await response.json();
+      console.log('Configuração salva com sucesso:', result);
+
       setSnackbar({
         open: true,
         message: 'Configurações salvas com sucesso!',
