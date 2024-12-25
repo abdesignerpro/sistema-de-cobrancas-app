@@ -1,0 +1,20 @@
+.MuiContainer-root {
+  margin: 0 !important;
+  padding: 8px !important;
+}
+
+.MuiGrid-root {
+  margin: 0 !important;
+}
+
+.MuiGrid-item {
+  padding: 4px !important;
+}
+
+.MuiBox-root {
+  padding: 0 !important;
+}
+
+.MuiTypography-root {
+  margin-bottom: 8px !important;
+}
