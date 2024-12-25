@@ -430,23 +430,33 @@ const ClientList: React.FC = () => {
         throw new Error('Erro ao enviar mensagem de texto');
       }
 
-      // Depois envia o QR Code como imagem
-      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(apiConfig.pixName)}&cidade=${encodeURIComponent(apiConfig.pixCity)}&valor=${numericValue.toFixed(2)}&saida=qr&chave=${encodeURIComponent(apiConfig.pixKey)}&txid=${encodeURIComponent(apiConfig.pixTxid)}`;
+      // Gera e envia o código PIX para cópia
+      const pixUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(apiConfig.pixName)}&cidade=${encodeURIComponent(apiConfig.pixCity)}&valor=${numericValue.toFixed(2)}&saida=br&chave=${encodeURIComponent(apiConfig.pixKey)}&txid=${encodeURIComponent(apiConfig.pixTxid)}`;
+      const pixResponse = await axios.get(pixUrl);
       
-      // Primeiro baixa a imagem e converte para base64
-      const imageResponse = await axios.get(qrCodeUrl, { responseType: 'blob' });
-      const base64Image = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(imageResponse.data);
+      const pixCodeMessage = {
+        number: phoneNumber,
+        text: `*Código PIX para cópia:*\n\`\`\`${pixResponse.data}\`\`\`\n_Cole este código no seu aplicativo de pagamento para efetuar o PIX._`,
+        apikey: apiConfig.apiKey,
+        delay: 2
+      };
+
+      await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, pixCodeMessage, {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': apiConfig.apiKey
+        }
       });
+
+      // Gera e envia o QR Code
+      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(apiConfig.pixName)}&cidade=${encodeURIComponent(apiConfig.pixCity)}&valor=${numericValue.toFixed(2)}&saida=qr&chave=${encodeURIComponent(apiConfig.pixKey)}&txid=${encodeURIComponent(apiConfig.pixTxid)}`;
       
       const mediaPayload = {
         number: phoneNumber,
         mediatype: "image",
         mimetype: "image/png",
-        caption: '📱 *QR Code para pagamento via PIX*',
-        media: base64Image,
+        caption: '📱 *QR Code para pagamento via PIX*\n_Escaneie este QR Code com seu aplicativo de pagamento._',
+        media: qrCodeUrl,
         delay: 2,
         apikey: apiConfig.apiKey
       };
@@ -460,29 +470,6 @@ const ClientList: React.FC = () => {
 
       if (!mediaResponse.data.status) {
         throw new Error('Erro ao enviar QR Code');
-      }
-
-      // Por fim, envia o código PIX como texto
-      const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${numericValue.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
-      const crc16 = calculateCRC16(brcode);
-      const fullBRCode = brcode + crc16;
-
-      const pixPayload = {
-        number: phoneNumber,
-        text: `*Código PIX para copiar e colar:*\n\n\`\`\`${fullBRCode}\`\`\``,
-        apikey: apiConfig.apiKey,
-        delay: 2
-      };
-
-      const pixResponse = await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, pixPayload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': apiConfig.apiKey
-        }
-      });
-
-      if (!pixResponse.data.status) {
-        throw new Error('Erro ao enviar código PIX');
       }
 
       setSnackbar({
