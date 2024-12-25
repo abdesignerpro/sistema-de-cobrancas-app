@@ -409,45 +409,54 @@ const ClientList: React.FC = () => {
         instance: apiConfig.instanceName
       };
 
-      const textResponse = await axios.post('https://api5.megaapi.com.br/rest/sendMessage', textPayload);
+      try {
+        const textResponse = await axios.post('https://api.megaapi.com.br/rest/sendMessage', textPayload);
 
-      if (!textResponse.data.success) {
-        throw new Error('Erro ao enviar mensagem de texto');
-      }
+        if (!textResponse.data.success) {
+          throw new Error('Erro ao enviar mensagem de texto');
+        }
 
-      // Depois envia o QR Code como imagem
-      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${apiConfig.pixName}&cidade=${apiConfig.pixCity}&valor=${numericValue.toFixed(2)}&saida=qr&chave=${apiConfig.pixKey}&txid=${apiConfig.pixTxid}`;
-      
-      const mediaPayload = {
-        number: phoneNumber,
-        url: qrCodeUrl,
-        caption: 'QR Code para pagamento via PIX',
-        apikey: apiConfig.apiKey,
-        instance: apiConfig.instanceName
-      };
+        // Depois envia o QR Code como imagem
+        const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(apiConfig.pixName)}&cidade=${encodeURIComponent(apiConfig.pixCity)}&valor=${numericValue.toFixed(2)}&saida=qr&chave=${encodeURIComponent(apiConfig.pixKey)}&txid=${encodeURIComponent(apiConfig.pixTxid)}`;
+        
+        const mediaPayload = {
+          number: phoneNumber,
+          url: qrCodeUrl,
+          caption: 'QR Code para pagamento via PIX',
+          apikey: apiConfig.apiKey,
+          instance: apiConfig.instanceName
+        };
 
-      const mediaResponse = await axios.post('https://api5.megaapi.com.br/rest/sendImage', mediaPayload);
+        const mediaResponse = await axios.post('https://api.megaapi.com.br/rest/sendImage', mediaPayload);
 
-      if (!mediaResponse.data.success) {
-        throw new Error('Erro ao enviar QR Code');
-      }
+        if (!mediaResponse.data.success) {
+          throw new Error('Erro ao enviar QR Code');
+        }
 
-      // Por fim, envia o código PIX como texto
-      const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${numericValue.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
-      const crc16 = calculateCRC16(brcode);
-      const fullBRCode = brcode + crc16;
+        // Por fim, envia o código PIX como texto
+        const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${numericValue.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
+        const crc16 = calculateCRC16(brcode);
+        const fullBRCode = brcode + crc16;
 
-      const pixPayload = {
-        number: phoneNumber,
-        text: `Código PIX:\n${fullBRCode}`,
-        apikey: apiConfig.apiKey,
-        instance: apiConfig.instanceName
-      };
+        const pixPayload = {
+          number: phoneNumber,
+          text: `Código PIX:\n${fullBRCode}`,
+          apikey: apiConfig.apiKey,
+          instance: apiConfig.instanceName
+        };
 
-      const pixResponse = await axios.post('https://api5.megaapi.com.br/rest/sendMessage', pixPayload);
+        const pixResponse = await axios.post('https://api.megaapi.com.br/rest/sendMessage', pixPayload);
 
-      if (!pixResponse.data.success) {
-        throw new Error('Erro ao enviar código PIX');
+        if (!pixResponse.data.success) {
+          throw new Error('Erro ao enviar código PIX');
+        }
+      } catch (error) {
+        console.error('Erro ao enviar mensagem:', error);
+        setSnackbar({
+          open: true,
+          message: 'Erro ao enviar mensagem',
+          severity: 'error'
+        });
       }
 
       setSnackbar({
@@ -462,7 +471,8 @@ const ClientList: React.FC = () => {
         lastBillingDate: new Date().toISOString().split('T')[0]
       };
 
-      await axios.post('http://localhost:3000/charges', [updatedClient]);
+      // Atualiza no servidor usando o endpoint correto
+      await axios.post('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', [updatedClient]);
 
       const updatedClients = clients.map(c =>
         c.id === e.id ? updatedClient : c
