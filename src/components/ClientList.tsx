@@ -194,7 +194,7 @@ const ClientList: React.FC = () => {
       setClients(clients);
       
       // Sincroniza com o backend
-      fetch('http://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', {
+      fetch('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -206,7 +206,7 @@ const ClientList: React.FC = () => {
       .catch(error => console.error('Erro ao sincronizar clientes:', error));
     } else {
       // Se não houver clientes no localStorage, tenta carregar do backend
-      fetch('http://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges')
+      fetch('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges')
         .then(response => response.json())
         .then(data => {
           if (Array.isArray(data) && data.length > 0) {
@@ -241,7 +241,7 @@ const ClientList: React.FC = () => {
       
       try {
         // Primeiro envia para o backend
-        const response = await fetch('http://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', {
+        const response = await fetch('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -312,7 +312,7 @@ const ClientList: React.FC = () => {
 
       try {
         // Primeiro envia para o backend
-        const response = await fetch('http://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', {
+        const response = await fetch('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
