@@ -34,6 +34,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import SearchIcon from '@mui/icons-material/Search';
 import CustomSnackbar from './CustomSnackbar';
+import axios from 'axios';
 
 interface Client {
   id: string;
@@ -383,8 +384,10 @@ const ClientList: React.FC = () => {
       console.log('Dados do cliente:', e);
 
       // Formata o valor antes de enviar
+      const numericValue = Number(String(e.value).replace(/[^\d.,]/g, '').replace(',', '.'));
       const formattedValue = formatValue(e.value);
       console.log('Valor formatado:', formattedValue);
+      console.log('Valor numérico:', numericValue);
 
       const message = `Olá ${e.name}, passando para lembrar sobre o pagamento do serviço: ${e.service}. Valor: ${formattedValue}`;
       console.log('Mensagem:', message);
@@ -395,94 +398,63 @@ const ClientList: React.FC = () => {
       const apiConfig = JSON.parse(localStorage.getItem('apiConfig') || '{}');
 
       if (!apiConfig.apiKey || !apiConfig.instanceName) {
-        setSnackbar({
-          open: true,
-          message: 'Configure a API primeiro!',
-          severity: 'error'
-        });
-        return;
+        throw new Error('Configurações da API não encontradas');
       }
 
       // Primeiro envia a mensagem de texto
       const textPayload = {
         number: phoneNumber,
         text: message,
-        options: {
-          delay: 1000,
-          presence: "composing"
-        }
+        apikey: apiConfig.apiKey,
+        instance: apiConfig.instanceName
       };
 
-      const textResponse = await fetch(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': apiConfig.apiKey
-        },
-        body: JSON.stringify(textPayload)
-      });
+      const textResponse = await axios.post('https://api5.megaapi.com.br/rest/sendMessage', textPayload);
 
-      const textResult = await textResponse.text();
-      if (!textResponse.ok) {
-        throw new Error(`Erro ao enviar mensagem de texto: ${textResult}`);
+      if (!textResponse.data.success) {
+        throw new Error('Erro ao enviar mensagem de texto');
       }
 
       // Depois envia o QR Code como imagem
-      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${apiConfig.pixName}&cidade=${apiConfig.pixCity}&valor=${e.value}&saida=qr&chave=${apiConfig.pixKey}&txid=${apiConfig.pixTxid}`;
+      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${apiConfig.pixName}&cidade=${apiConfig.pixCity}&valor=${numericValue.toFixed(2)}&saida=qr&chave=${apiConfig.pixKey}&txid=${apiConfig.pixTxid}`;
       
       const mediaPayload = {
         number: phoneNumber,
-        mediatype: "image",
-        media: qrCodeUrl,
-        fileName: "qrcode_pix.png",
-        caption: "QR Code para pagamento via PIX\n\n*Código PIX abaixo para copiar e colar 👇🏼*",
-        options: {
-          delay: 1000,
-          presence: "composing"
-        }
+        url: qrCodeUrl,
+        caption: 'QR Code para pagamento via PIX',
+        apikey: apiConfig.apiKey,
+        instance: apiConfig.instanceName
       };
 
-      const mediaResponse = await fetch(`${apiConfig.apiUrl}/message/sendMedia/${apiConfig.instanceName}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': apiConfig.apiKey
-        },
-        body: JSON.stringify(mediaPayload)
-      });
+      const mediaResponse = await axios.post('https://api5.megaapi.com.br/rest/sendImage', mediaPayload);
 
-      const mediaResult = await mediaResponse.text();
-      if (!mediaResponse.ok) {
-        throw new Error(`Erro ao enviar QR Code: ${mediaResult}`);
+      if (!mediaResponse.data.success) {
+        throw new Error('Erro ao enviar QR Code');
       }
 
       // Por fim, envia o código PIX como texto
-      const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${e.value.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
+      const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${numericValue.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
       const crc16 = calculateCRC16(brcode);
       const fullBRCode = brcode + crc16;
 
       const pixPayload = {
         number: phoneNumber,
-        text: `${fullBRCode}`,
-        options: {
-          delay: 1000,
-          presence: "composing"
-        }
+        text: `Código PIX:\n${fullBRCode}`,
+        apikey: apiConfig.apiKey,
+        instance: apiConfig.instanceName
       };
 
-      const pixTextResponse = await fetch(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': apiConfig.apiKey
-        },
-        body: JSON.stringify(pixPayload)
-      });
+      const pixResponse = await axios.post('https://api5.megaapi.com.br/rest/sendMessage', pixPayload);
 
-      const pixResult = await pixTextResponse.text();
-      if (!pixTextResponse.ok) {
-        throw new Error(`Erro ao enviar código PIX: ${pixResult}`);
+      if (!pixResponse.data.success) {
+        throw new Error('Erro ao enviar código PIX');
       }
+
+      setSnackbar({
+        open: true,
+        message: 'Mensagem enviada com sucesso!',
+        severity: 'success'
+      });
 
       // Atualiza a data do último envio
       const updatedClient = {
@@ -490,22 +462,19 @@ const ClientList: React.FC = () => {
         lastBillingDate: new Date().toISOString().split('T')[0]
       };
 
-      const updatedClients = clients.map(c => 
+      await axios.post('http://localhost:3000/charges', [updatedClient]);
+
+      const updatedClients = clients.map(c =>
         c.id === e.id ? updatedClient : c
       );
       setClients(updatedClients);
       localStorage.setItem('clients', JSON.stringify(updatedClients));
 
-      setSnackbar({
-        open: true,
-        message: 'Mensagem enviada com sucesso!',
-        severity: 'success'
-      });
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       setSnackbar({
         open: true,
-        message: 'Erro ao enviar mensagem: ' + error,
+        message: 'Erro ao enviar mensagem',
         severity: 'error'
       });
     }
