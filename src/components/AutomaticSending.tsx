@@ -112,7 +112,7 @@ Atenciosamente,
       localStorage.setItem('automaticSendingConfig', JSON.stringify(config));
       
       // Envia para o backend
-      const response = await fetch('/api/config/update', {
+      const response = await fetch('/api/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
