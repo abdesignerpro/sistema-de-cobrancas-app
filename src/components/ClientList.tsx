@@ -415,12 +415,18 @@ const ClientList: React.FC = () => {
       const textPayload = {
         number: phoneNumber,
         text: message,
-        apikey: apiConfig.apiKey
+        apikey: apiConfig.apiKey,
+        delay: 2
       };
 
-      const textResponse = await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, textPayload);
+      const textResponse = await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, textPayload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': apiConfig.apiKey
+        }
+      });
 
-      if (!textResponse.data.success) {
+      if (!textResponse.data.status) {
         throw new Error('Erro ao enviar mensagem de texto');
       }
 
@@ -429,14 +435,22 @@ const ClientList: React.FC = () => {
       
       const mediaPayload = {
         number: phoneNumber,
-        url: qrCodeUrl,
+        mediatype: "image",
+        mimetype: "image/png",
         caption: '📱 *QR Code para pagamento via PIX*',
+        media: qrCodeUrl,
+        delay: 2,
         apikey: apiConfig.apiKey
       };
 
-      const mediaResponse = await axios.post(`${apiConfig.apiUrl}/message/sendMedia/${apiConfig.instanceName}`, mediaPayload);
+      const mediaResponse = await axios.post(`${apiConfig.apiUrl}/message/sendMedia/${apiConfig.instanceName}`, mediaPayload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': apiConfig.apiKey
+        }
+      });
 
-      if (!mediaResponse.data.success) {
+      if (!mediaResponse.data.status) {
         throw new Error('Erro ao enviar QR Code');
       }
 
@@ -448,12 +462,18 @@ const ClientList: React.FC = () => {
       const pixPayload = {
         number: phoneNumber,
         text: `*Código PIX para copiar e colar:*\n\n\`\`\`${fullBRCode}\`\`\``,
-        apikey: apiConfig.apiKey
+        apikey: apiConfig.apiKey,
+        delay: 2
       };
 
-      const pixResponse = await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, pixPayload);
+      const pixResponse = await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, pixPayload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': apiConfig.apiKey
+        }
+      });
 
-      if (!pixResponse.data.success) {
+      if (!pixResponse.data.status) {
         throw new Error('Erro ao enviar código PIX');
       }
 
