@@ -41,7 +41,7 @@ const AutomaticSending: React.FC<AutomaticSendingProps> = ({ onConfigChange }) =
 
   const loadConfig = async () => {
     try {
-      const response = await axios.get('http://localhost:3000/config');
+      const response = await axios.get('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/config');
       const config = response.data;
 
       setIsEnabled(config.automaticSendingEnabled === 'true');
@@ -62,7 +62,7 @@ const AutomaticSending: React.FC<AutomaticSendingProps> = ({ onConfigChange }) =
         messageTemplate,
       };
 
-      await axios.post('http://localhost:3000/config', config);
+      await axios.post('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/config', config);
       
       setSnackbar({
         open: true,
