@@ -383,80 +383,78 @@ const ClientList: React.FC = () => {
       console.log('Iniciando envio de mensagem...');
       console.log('Dados do cliente:', e);
 
+      // Primeiro busca as configurações do backend
+      const configResponse = await axios.get('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/config');
+      const apiConfig = configResponse.data;
+
+      if (!apiConfig.apiUrl || !apiConfig.apiKey || !apiConfig.instanceName) {
+        throw new Error('Configurações da API do WhatsApp não encontradas');
+      }
+
       // Formata o valor antes de enviar
       const numericValue = Number(String(e.value).replace(/[^\d.,]/g, '').replace(',', '.'));
       const formattedValue = formatValue(e.value);
       console.log('Valor formatado:', formattedValue);
       console.log('Valor numérico:', numericValue);
 
-      const message = `Olá ${e.name}, passando para lembrar sobre o pagamento do serviço: ${e.service}. Valor: ${formattedValue}`;
+      const message = `Olá ${e.name}! 👋\n\n` +
+        `Esperamos que esteja bem! Este é um lembrete sobre seu serviço:\n\n` +
+        `📋 *Detalhes do Serviço*\n` +
+        `☑️ Serviço: ${e.service}\n` +
+        `💰 Valor: ${formattedValue}\n\n` +
+        `💳 *Opções de Pagamento*\n` +
+        `Para sua comodidade, disponibilizamos o pagamento via PIX.\n\n` +
+        `Em instantes enviarei o QR Code e o código PIX para pagamento.`;
+
       console.log('Mensagem:', message);
 
       const phoneNumber = e.whatsapp.replace(/\D/g, '');
       console.log('Telefone:', phoneNumber);
 
-      const apiConfig = JSON.parse(localStorage.getItem('apiConfig') || '{}');
-
-      if (!apiConfig.apiKey || !apiConfig.instanceName) {
-        throw new Error('Configurações da API não encontradas');
-      }
-
       // Primeiro envia a mensagem de texto
       const textPayload = {
         number: phoneNumber,
         text: message,
-        apikey: apiConfig.apiKey,
-        instance: apiConfig.instanceName
+        apikey: apiConfig.apiKey
       };
 
-      try {
-        const textResponse = await axios.post('https://api.megaapi.com.br/rest/sendMessage', textPayload);
+      const textResponse = await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, textPayload);
 
-        if (!textResponse.data.success) {
-          throw new Error('Erro ao enviar mensagem de texto');
-        }
+      if (!textResponse.data.success) {
+        throw new Error('Erro ao enviar mensagem de texto');
+      }
 
-        // Depois envia o QR Code como imagem
-        const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(apiConfig.pixName)}&cidade=${encodeURIComponent(apiConfig.pixCity)}&valor=${numericValue.toFixed(2)}&saida=qr&chave=${encodeURIComponent(apiConfig.pixKey)}&txid=${encodeURIComponent(apiConfig.pixTxid)}`;
-        
-        const mediaPayload = {
-          number: phoneNumber,
-          url: qrCodeUrl,
-          caption: 'QR Code para pagamento via PIX',
-          apikey: apiConfig.apiKey,
-          instance: apiConfig.instanceName
-        };
+      // Depois envia o QR Code como imagem
+      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(apiConfig.pixName)}&cidade=${encodeURIComponent(apiConfig.pixCity)}&valor=${numericValue.toFixed(2)}&saida=qr&chave=${encodeURIComponent(apiConfig.pixKey)}&txid=${encodeURIComponent(apiConfig.pixTxid)}`;
+      
+      const mediaPayload = {
+        number: phoneNumber,
+        url: qrCodeUrl,
+        caption: '📱 *QR Code para pagamento via PIX*',
+        apikey: apiConfig.apiKey
+      };
 
-        const mediaResponse = await axios.post('https://api.megaapi.com.br/rest/sendImage', mediaPayload);
+      const mediaResponse = await axios.post(`${apiConfig.apiUrl}/message/sendMedia/${apiConfig.instanceName}`, mediaPayload);
 
-        if (!mediaResponse.data.success) {
-          throw new Error('Erro ao enviar QR Code');
-        }
+      if (!mediaResponse.data.success) {
+        throw new Error('Erro ao enviar QR Code');
+      }
 
-        // Por fim, envia o código PIX como texto
-        const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${numericValue.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
-        const crc16 = calculateCRC16(brcode);
-        const fullBRCode = brcode + crc16;
+      // Por fim, envia o código PIX como texto
+      const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${numericValue.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
+      const crc16 = calculateCRC16(brcode);
+      const fullBRCode = brcode + crc16;
 
-        const pixPayload = {
-          number: phoneNumber,
-          text: `Código PIX:\n${fullBRCode}`,
-          apikey: apiConfig.apiKey,
-          instance: apiConfig.instanceName
-        };
+      const pixPayload = {
+        number: phoneNumber,
+        text: `*Código PIX para copiar e colar:*\n\n\`\`\`${fullBRCode}\`\`\``,
+        apikey: apiConfig.apiKey
+      };
 
-        const pixResponse = await axios.post('https://api.megaapi.com.br/rest/sendMessage', pixPayload);
+      const pixResponse = await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, pixPayload);
 
-        if (!pixResponse.data.success) {
-          throw new Error('Erro ao enviar código PIX');
-        }
-      } catch (error) {
-        console.error('Erro ao enviar mensagem:', error);
-        setSnackbar({
-          open: true,
-          message: 'Erro ao enviar mensagem',
-          severity: 'error'
-        });
+      if (!pixResponse.data.success) {
+        throw new Error('Erro ao enviar código PIX');
       }
 
       setSnackbar({
@@ -471,7 +469,6 @@ const ClientList: React.FC = () => {
         lastBillingDate: new Date().toISOString().split('T')[0]
       };
 
-      // Atualiza no servidor usando o endpoint correto
       await axios.post('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', [updatedClient]);
 
       const updatedClients = clients.map(c =>

@@ -27,7 +27,18 @@ const AutomaticSending: React.FC<AutomaticSendingProps> = ({ onConfigChange }) =
   const [daysBeforeDue, setDaysBeforeDue] = useState('1');
   const [sendTime, setSendTime] = useState<dayjs.Dayjs | null>(dayjs().hour(9).minute(0));
   const [messageTemplate, setMessageTemplate] = useState(
-    'Olá {nome}! 👋\n\nEsperamos que esteja bem!\n\n📋 *Detalhes do Serviço*\n☑️ Serviço: {servico}\n💰 Valor: R$ {valor}\n📅 Vencimento: {dias}\n\n💳 *Opções de Pagamento*\nPara sua comodidade, disponibilizamos o pagamento via PIX:\n\n📱 *Pague com QR Code:*\n{qrcode}'
+    'Olá {nome}! 👋\n\n' +
+    'Esperamos que esteja bem! Este é um lembrete sobre seu serviço:\n\n' +
+    '📋 *Detalhes do Serviço*\n' +
+    '☑️ Serviço: {servico}\n' +
+    '💰 Valor: R$ {valor}\n' +
+    '📅 Vencimento: {dias}\n\n' +
+    '💳 *Opções de Pagamento*\n' +
+    'Para sua comodidade, disponibilizamos o pagamento via PIX:\n\n' +
+    '📱 *Pague com QR Code:*\n' +
+    '{qrcode}\n\n' +
+    'Ou copie e cole o código PIX:\n' +
+    '{pixcode}'
   );
   const [snackbar, setSnackbar] = useState({
     open: false,

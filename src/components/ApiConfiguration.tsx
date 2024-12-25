@@ -36,7 +36,7 @@ const PIX_KEY_TYPES = [
 
 const ApiConfiguration: React.FC = () => {
   const [config, setConfig] = useState<ApiConfig>({
-    apiUrl: 'https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host',
+    apiUrl: 'https://evolution.abdesignerpro.com.br',
     apiKey: '',
     instanceName: 'anderson',
     pixName: '',
