@@ -358,23 +358,52 @@ const ClientList: React.FC = () => {
     }
   };
 
-  const handleSendMessage = async (client: Client) => {
-    const apiConfig = JSON.parse(localStorage.getItem('apiConfig') || '{}');
-
-    if (!apiConfig.apiKey || !apiConfig.instanceName) {
-      setSnackbar({
-        open: true,
-        message: 'Configure a API primeiro!',
-        severity: 'error'
-      });
-      return;
-    }
-
+  const formatValue = (value: string | number): string => {
     try {
-      // Primeiro envia a mensagem de texto
-      const message = generateMessage(client, apiConfig);
-      const phoneNumber = client.whatsapp.replace(/\D/g, '');
+      // Remove caracteres não numéricos, exceto ponto e vírgula
+      const cleanValue = String(value).replace(/[^\d.,]/g, '');
       
+      // Substitui vírgula por ponto para garantir formato numérico
+      const numericValue = cleanValue.replace(',', '.');
+      
+      // Converte para número e formata com 2 casas decimais
+      const formattedValue = Number(numericValue).toFixed(2);
+      
+      // Retorna o valor formatado com R$
+      return `R$ ${formattedValue}`;
+    } catch (error) {
+      console.error('Erro ao formatar valor:', error);
+      return String(value); // Retorna o valor original em caso de erro
+    }
+  };
+
+  const handleSendMessage = async (e: any) => {
+    try {
+      console.log('Iniciando envio de mensagem...');
+      console.log('Dados do cliente:', e);
+
+      // Formata o valor antes de enviar
+      const formattedValue = formatValue(e.value);
+      console.log('Valor formatado:', formattedValue);
+
+      const message = `Olá ${e.name}, passando para lembrar sobre o pagamento do serviço: ${e.service}. Valor: ${formattedValue}`;
+      console.log('Mensagem:', message);
+
+      const phoneNumber = e.whatsapp.replace(/\D/g, '');
+      console.log('Telefone:', phoneNumber);
+
+      const apiConfig = JSON.parse(localStorage.getItem('apiConfig') || '{}');
+
+      if (!apiConfig.apiKey || !apiConfig.instanceName) {
+        setSnackbar({
+          open: true,
+          message: 'Configure a API primeiro!',
+          severity: 'error'
+        });
+        return;
+      }
+
+      // Primeiro envia a mensagem de texto
       const textPayload = {
         number: phoneNumber,
         text: message,
@@ -399,7 +428,7 @@ const ClientList: React.FC = () => {
       }
 
       // Depois envia o QR Code como imagem
-      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${apiConfig.pixName}&cidade=${apiConfig.pixCity}&valor=${client.value}&saida=qr&chave=${apiConfig.pixKey}&txid=${apiConfig.pixTxid}`;
+      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${apiConfig.pixName}&cidade=${apiConfig.pixCity}&valor=${e.value}&saida=qr&chave=${apiConfig.pixKey}&txid=${apiConfig.pixTxid}`;
       
       const mediaPayload = {
         number: phoneNumber,
@@ -428,7 +457,7 @@ const ClientList: React.FC = () => {
       }
 
       // Por fim, envia o código PIX como texto
-      const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${client.value.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
+      const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${e.value.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
       const crc16 = calculateCRC16(brcode);
       const fullBRCode = brcode + crc16;
 
@@ -457,12 +486,12 @@ const ClientList: React.FC = () => {
 
       // Atualiza a data do último envio
       const updatedClient = {
-        ...client,
+        ...e,
         lastBillingDate: new Date().toISOString().split('T')[0]
       };
 
       const updatedClients = clients.map(c => 
-        c.id === client.id ? updatedClient : c
+        c.id === e.id ? updatedClient : c
       );
       setClients(updatedClients);
       localStorage.setItem('clients', JSON.stringify(updatedClients));
@@ -499,10 +528,7 @@ const ClientList: React.FC = () => {
         year: 'numeric'
       });
 
-      const formattedValue = client.value.toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-      });
+      const formattedValue = formatValue(client.value);
 
       return `Olá ${client.name}! Este é um lembrete da sua mensalidade no valor de ${formattedValue} com vencimento em ${formattedDate}. Por favor, entre em contato para mais informações.`;
     }
@@ -596,10 +622,7 @@ const ClientList: React.FC = () => {
                     </TableCell>
                     <TableCell>{client.service}</TableCell>
                     <TableCell align="right">
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL'
-                      }).format(Number(client.value))}
+                      {formatValue(client.value)}
                     </TableCell>
                     <TableCell>{client.billingDay}</TableCell>
                     <TableCell>
