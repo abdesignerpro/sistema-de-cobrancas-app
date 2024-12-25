@@ -194,7 +194,7 @@ const ClientList: React.FC = () => {
       setClients(clients);
       
       // Sincroniza com o backend
-      fetch('http://localhost:3001/clients/update', {
+      fetch('/api/clients/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -206,7 +206,7 @@ const ClientList: React.FC = () => {
       .catch(error => console.error('Erro ao sincronizar clientes:', error));
     } else {
       // Se não houver clientes no localStorage, tenta carregar do backend
-      fetch('http://localhost:3001/clients')
+      fetch('/api/clients')
         .then(response => response.json())
         .then(data => {
           if (Array.isArray(data) && data.length > 0) {
@@ -241,7 +241,7 @@ const ClientList: React.FC = () => {
       
       try {
         // Primeiro envia para o backend
-        const response = await fetch('http://localhost:3001/clients/update', {
+        const response = await fetch('/api/clients/update', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -312,7 +312,7 @@ const ClientList: React.FC = () => {
 
       try {
         // Primeiro envia para o backend
-        const response = await fetch('http://localhost:3001/clients/update', {
+        const response = await fetch('/api/clients/update', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

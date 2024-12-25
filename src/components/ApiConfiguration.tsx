@@ -60,7 +60,7 @@ const ApiConfiguration: React.FC = () => {
       setConfig(config);
       
       // Envia a configuração para o backend
-      fetch('http://localhost:3001/api/config/update', {
+      fetch('/api/config/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,7 +96,7 @@ const ApiConfiguration: React.FC = () => {
       localStorage.setItem('apiConfig', JSON.stringify(config));
 
       // Envia para o backend
-      const response = await fetch('http://localhost:3001/api/config/update', {
+      const response = await fetch('/api/config/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
