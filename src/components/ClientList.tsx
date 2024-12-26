@@ -379,127 +379,120 @@ const ClientList: React.FC = () => {
     }
   };
 
-  const sendWhatsAppMessage = async (e: Client) => {
+  const sendWhatsAppMessage = async (client: Client) => {
     try {
       setLoading(true);
-      console.log('Iniciando envio de mensagem...');
 
       // Busca configurações da API
-      const apiConfigResponse = await axios.get('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/config');
-      const apiConfig = apiConfigResponse.data;
+      const apiConfig = JSON.parse(localStorage.getItem('apiConfig') || '{}');
 
       // Valida configurações
       if (!apiConfig.apiUrl || !apiConfig.apiKey || !apiConfig.instanceName) {
-        throw new Error('Configurações da API incompletas');
+        setSnackbar({
+          open: true,
+          message: 'Configure a API primeiro!',
+          severity: 'error'
+        });
+        return;
       }
 
       // Formata o número do telefone
-      const phoneNumber = e.whatsapp.replace(/\D/g, '');
-      console.log('Dados do cliente:', e);
+      const phoneNumber = client.whatsapp.replace(/\D/g, '');
 
       // Gera a mensagem inicial
-      const message = generateMessage(e, apiConfig);
-
-      // Formata o valor para a API do PIX
-      const formattedValue = Number(e.value).toFixed(2);
-      const numericValue = Number(e.value);
-      console.log('Valor formatado:', formattedValue);
-      console.log('Valor numérico:', numericValue);
-
-      // Gera o código PIX
-      const pixParams = {
-        nome: apiConfig.pixName,
-        cidade: apiConfig.pixCity,
-        valor: formattedValue,
-        chave: apiConfig.pixKey,
-        txid: apiConfig.pixTxid
-      };
+      const message = generateMessage(client, apiConfig);
 
       // Envia a mensagem inicial
-      console.log('Mensagem:', message);
-      console.log('Telefone:', phoneNumber);
-
-      const messagePayload = {
+      const textPayload = {
         number: phoneNumber,
         text: message,
-        apikey: apiConfig.apiKey,
-        delay: 2
+        options: {
+          delay: 1000,
+          presence: "composing"
+        }
       };
 
-      // Envia a mensagem inicial
-      await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, messagePayload, {
+      const textResponse = await fetch(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': apiConfig.apiKey
-        }
+        },
+        body: JSON.stringify(textPayload)
       });
 
-      // Aguarda 2 segundos antes de enviar o QR Code
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const textResult = await textResponse.text();
+      if (!textResponse.ok) {
+        throw new Error(`Erro ao enviar mensagem de texto: ${textResult}`);
+      }
 
-      // Gera o QR Code e código PIX
-      const pixResponse = await axios.get('https://gerarqrcodepix.com.br/api/v1', {
-        params: {
-          ...pixParams,
-          saida: 'qr'
-        }
-      });
-
-      // Envia o QR Code
+      // Depois envia o QR Code como imagem
+      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(apiConfig.pixName)}&cidade=${encodeURIComponent(apiConfig.pixCity)}&valor=${client.value}&saida=qr&chave=${encodeURIComponent(apiConfig.pixKey)}&txid=${encodeURIComponent(apiConfig.pixTxid)}`;
+      
       const mediaPayload = {
         number: phoneNumber,
         mediatype: "image",
-        mimetype: "image/png",
-        caption: '📱 *QR Code para pagamento via PIX*\n_Escaneie este QR Code com seu aplicativo de pagamento._',
-        media: `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(pixParams.nome)}&cidade=${encodeURIComponent(pixParams.cidade)}&valor=${encodeURIComponent(pixParams.valor)}&saida=qr&chave=${encodeURIComponent(pixParams.chave)}&txid=${encodeURIComponent(pixParams.txid)}`,
-        delay: 2,
-        apikey: apiConfig.apiKey,
-        fileName: ""
+        media: qrCodeUrl,
+        fileName: "qrcode_pix.png",
+        caption: "QR Code para pagamento via PIX\n\n*Código PIX abaixo para copiar e colar 👇🏼*",
+        options: {
+          delay: 1000,
+          presence: "composing"
+        }
       };
 
-      await axios.post(`${apiConfig.apiUrl}/message/sendMedia/${apiConfig.instanceName}`, mediaPayload, {
+      const mediaResponse = await fetch(`${apiConfig.apiUrl}/message/sendMedia/${apiConfig.instanceName}`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': apiConfig.apiKey
-        }
+        },
+        body: JSON.stringify(mediaPayload)
       });
 
-      // Aguarda 2 segundos antes de enviar o código PIX
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const mediaResult = await mediaResponse.text();
+      if (!mediaResponse.ok) {
+        throw new Error(`Erro ao enviar QR Code: ${mediaResult}`);
+      }
 
-      // Gera o código PIX para cópia
-      const pixCodeResponse = await axios.get('https://gerarqrcodepix.com.br/api/v1', {
-        params: {
-          ...pixParams,
-          saida: 'br'
-        }
-      });
+      // Por fim, envia o código PIX como texto
+      const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${client.value.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
+      const crc16 = calculateCRC16(brcode);
+      const fullBRCode = brcode + crc16;
 
-      // Envia o código PIX
-      const pixCodePayload = {
+      const pixPayload = {
         number: phoneNumber,
-        text: `*Código PIX para cópia:*\n\`\`\`${pixCodeResponse.data.brcode}\`\`\`\n_Cole este código no seu aplicativo de pagamento para efetuar o PIX._`,
-        apikey: apiConfig.apiKey,
-        delay: 2
+        text: `${fullBRCode}`,
+        options: {
+          delay: 1000,
+          presence: "composing"
+        }
       };
 
-      await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, pixCodePayload, {
+      const pixTextResponse = await fetch(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': apiConfig.apiKey
-        }
+        },
+        body: JSON.stringify(pixPayload)
       });
+
+      const pixResult = await pixTextResponse.text();
+      if (!pixTextResponse.ok) {
+        throw new Error(`Erro ao enviar código PIX: ${pixResult}`);
+      }
 
       // Atualiza a data do último envio
       const updatedClient = {
-        ...e,
+        ...client,
         lastBillingDate: new Date().toISOString().split('T')[0]
       };
 
       await axios.post('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', [updatedClient]);
 
       const updatedClients = clients.map(c =>
-        c.id === e.id ? updatedClient : c
+        c.id === client.id ? updatedClient : c
       );
       setClients(updatedClients);
       localStorage.setItem('clients', JSON.stringify(updatedClients));
@@ -514,7 +507,7 @@ const ClientList: React.FC = () => {
       console.error('Erro ao enviar mensagem:', error);
       setSnackbar({
         open: true,
-        message: 'Erro ao enviar mensagem',
+        message: 'Erro ao enviar mensagem: ' + error,
         severity: 'error'
       });
     } finally {
