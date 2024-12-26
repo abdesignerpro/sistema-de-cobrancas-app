@@ -181,60 +181,21 @@ const ClientList: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Carrega os serviços do localStorage
-    const savedServices = localStorage.getItem('services');
-    if (savedServices) {
-      setServices(JSON.parse(savedServices));
-    }
-  }, []);
-
-  useEffect(() => {
-    // Carrega os clientes do localStorage
-    const storedClients = localStorage.getItem('clients');
-    if (storedClients) {
-      const clients = JSON.parse(storedClients);
-      setClients(clients);
-      
-      // Sincroniza com o backend
-      fetch('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(clients),
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Erro ao sincronizar com o backend');
-        }
-        return response.json();
-      })
+    // Carrega os clientes do backend
+    fetch('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges')
+      .then(response => response.json())
       .then(data => {
-        const updatedClients = data;
-        console.log('Clientes sincronizados com o backend:', updatedClients);
-        setClients(updatedClients);
+        if (Array.isArray(data) && data.length > 0) {
+          // Garante que o valor é sempre um número
+          const clients = data.map((client: Client) => ({
+            ...client,
+            value: parseFloat(client.value.toString())
+          }));
+          setClients(clients);
+        }
       })
-      .catch(error => console.error('Erro ao sincronizar clientes:', error));
-    } else {
-      // Se não houver clientes no localStorage, tenta carregar do backend
-      fetch('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges')
-        .then(response => response.json())
-        .then(data => {
-          if (Array.isArray(data) && data.length > 0) {
-            setClients(data);
-            localStorage.setItem('clients', JSON.stringify(data));
-          }
-        })
-        .catch(error => console.error('Erro ao carregar clientes do backend:', error));
-    }
+      .catch(error => console.error('Erro ao carregar clientes do backend:', error));
   }, []);
-
-  useEffect(() => {
-    // Salva os clientes no localStorage quando houver mudanças
-    if (clients.length > 0) {
-      localStorage.setItem('clients', JSON.stringify(clients));
-    }
-  }, [clients]);
 
   const handleEdit = (client: Client) => {
     setClientToEdit(client);
@@ -248,27 +209,17 @@ const ClientList: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     if (clientToDelete) {
-      const updatedClients = clients.filter(client => client.id !== clientToDelete.id);
-      
       try {
-        // Primeiro envia para o backend
-        const response = await fetch('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(updatedClients)
+        const response = await fetch(`https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges/${clientToDelete.id}`, {
+          method: 'DELETE'
         });
 
         if (!response.ok) {
-          throw new Error('Erro ao sincronizar com o backend');
+          throw new Error('Erro ao excluir cliente');
         }
 
-        const updatedClient = await response.json();
-
-        // Depois atualiza o estado e o localStorage
+        const updatedClients = clients.filter(client => client.id !== clientToDelete.id);
         setClients(updatedClients);
-        localStorage.setItem('clients', JSON.stringify(updatedClients));
         setDeleteConfirmOpen(false);
         setClientToDelete(null);
         setSnackbar({
@@ -291,7 +242,13 @@ const ClientList: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string>
   ) => {
     if (clientToEdit) {
-      const value = e.target.name === 'value' ? parseFloat(e.target.value) || 0 : e.target.value;
+      let value: string | number = e.target.value;
+      
+      // Converte o valor para número quando for o campo value
+      if (e.target.name === 'value') {
+        value = parseFloat(e.target.value) || 0;
+      }
+
       setClientToEdit({
         ...clientToEdit,
         [e.target.name]: value,
@@ -299,23 +256,46 @@ const ClientList: React.FC = () => {
     }
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (clientToEdit) {
-      const updatedClients = clients.map(client =>
-        client.id === clientToEdit.id ? {
-          ...clientToEdit,
-          value: parseFloat(clientToEdit.value.toString())
-        } : client
-      );
-      setClients(updatedClients);
-      localStorage.setItem('clients', JSON.stringify(updatedClients));
-      setEditMode(false);
-      setClientToEdit(null);
-      setSnackbar({
-        open: true,
-        message: 'Cliente atualizado com sucesso!',
-        severity: 'success'
-      });
+      const updatedClient = {
+        ...clientToEdit,
+        value: parseFloat(clientToEdit.value.toString())
+      };
+
+      try {
+        const response = await fetch('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify([updatedClient])
+        });
+
+        if (!response.ok) {
+          throw new Error('Erro ao atualizar cliente');
+        }
+
+        const updatedClients = clients.map(client =>
+          client.id === updatedClient.id ? updatedClient : client
+        );
+
+        setClients(updatedClients);
+        setEditMode(false);
+        setClientToEdit(null);
+        setSnackbar({
+          open: true,
+          message: 'Cliente atualizado com sucesso!',
+          severity: 'success'
+        });
+      } catch (error) {
+        console.error('Erro ao atualizar cliente:', error);
+        setSnackbar({
+          open: true,
+          message: 'Erro ao atualizar cliente. Tente novamente.',
+          severity: 'error'
+        });
+      }
     }
   };
 
@@ -351,6 +331,12 @@ const ClientList: React.FC = () => {
     }
 
     try {
+      // Garante que o valor é um número antes de usar toFixed
+      const value = typeof client.value === 'string' ? parseFloat(client.value) : client.value;
+      if (isNaN(value)) {
+        throw new Error('Valor inválido');
+      }
+
       // Primeiro envia a mensagem de texto
       const message = generateMessage(client, apiConfig);
       const phoneNumber = client.whatsapp.replace(/\D/g, '');
@@ -379,7 +365,7 @@ const ClientList: React.FC = () => {
       }
 
       // Depois envia o QR Code como imagem
-      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${apiConfig.pixName}&cidade=${apiConfig.pixCity}&valor=${client.value}&saida=qr&chave=${apiConfig.pixKey}&txid=${apiConfig.pixTxid}`;
+      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${apiConfig.pixName}&cidade=${apiConfig.pixCity}&valor=${value.toFixed(2)}&saida=qr&chave=${apiConfig.pixKey}&txid=${apiConfig.pixTxid}`;
       
       const mediaPayload = {
         number: phoneNumber,
@@ -408,7 +394,7 @@ const ClientList: React.FC = () => {
       }
 
       // Por fim, envia o código PIX como texto
-      const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${client.value.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
+      const brcode = `00020126330014br.gov.bcb.pix0111${apiConfig.pixKey}5204000053039865406${value.toFixed(2)}5802BR5915${apiConfig.pixName}6013${apiConfig.pixCity}62170513${apiConfig.pixTxid}6304`;
       const crc16 = calculateCRC16(brcode);
       const fullBRCode = brcode + crc16;
 
@@ -445,7 +431,6 @@ const ClientList: React.FC = () => {
         c.id === client.id ? updatedClient : c
       );
       setClients(updatedClients);
-      localStorage.setItem('clients', JSON.stringify(updatedClients));
 
       setSnackbar({
         open: true,
