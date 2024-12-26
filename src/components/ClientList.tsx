@@ -431,7 +431,7 @@ const ClientList: React.FC = () => {
       }
 
       // Gera o código PIX e QR Code através do nosso backend
-      const pixResponse = await axios.get(`${process.env.REACT_APP_API_URL}/pix/generate`, {
+      const pixResponse = await axios.get('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/pix/generate', {
         params: {
           nome: apiConfig.pixName,
           cidade: apiConfig.pixCity,
