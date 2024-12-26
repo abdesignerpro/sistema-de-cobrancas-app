@@ -379,30 +379,23 @@ const ClientList: React.FC = () => {
     }
   };
 
-  const sendWhatsAppMessage = async (client: Client) => {
+  const handleSendMessage = async (client: Client) => {
+    const apiConfig = JSON.parse(localStorage.getItem('apiConfig') || '{}');
+
+    if (!apiConfig.apiKey || !apiConfig.instanceName) {
+      setSnackbar({
+        open: true,
+        message: 'Configure a API primeiro!',
+        severity: 'error'
+      });
+      return;
+    }
+
     try {
-      setLoading(true);
-
-      // Busca configurações da API
-      const apiConfig = JSON.parse(localStorage.getItem('apiConfig') || '{}');
-
-      // Valida configurações
-      if (!apiConfig.apiUrl || !apiConfig.apiKey || !apiConfig.instanceName) {
-        setSnackbar({
-          open: true,
-          message: 'Configure a API primeiro!',
-          severity: 'error'
-        });
-        return;
-      }
-
-      // Formata o número do telefone
-      const phoneNumber = client.whatsapp.replace(/\D/g, '');
-
-      // Gera a mensagem inicial
+      // Primeiro envia a mensagem de texto
       const message = generateMessage(client, apiConfig);
-
-      // Envia a mensagem inicial
+      const phoneNumber = client.whatsapp.replace(/\D/g, '');
+      
       const textPayload = {
         number: phoneNumber,
         text: message,
@@ -427,7 +420,7 @@ const ClientList: React.FC = () => {
       }
 
       // Depois envia o QR Code como imagem
-      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(apiConfig.pixName)}&cidade=${encodeURIComponent(apiConfig.pixCity)}&valor=${client.value}&saida=qr&chave=${encodeURIComponent(apiConfig.pixKey)}&txid=${encodeURIComponent(apiConfig.pixTxid)}`;
+      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${apiConfig.pixName}&cidade=${apiConfig.pixCity}&valor=${client.value}&saida=qr&chave=${apiConfig.pixKey}&txid=${apiConfig.pixTxid}`;
       
       const mediaPayload = {
         number: phoneNumber,
@@ -489,9 +482,7 @@ const ClientList: React.FC = () => {
         lastBillingDate: new Date().toISOString().split('T')[0]
       };
 
-      await axios.post('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', [updatedClient]);
-
-      const updatedClients = clients.map(c =>
+      const updatedClients = clients.map(c => 
         c.id === client.id ? updatedClient : c
       );
       setClients(updatedClients);
@@ -502,7 +493,6 @@ const ClientList: React.FC = () => {
         message: 'Mensagem enviada com sucesso!',
         severity: 'success'
       });
-
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       setSnackbar({
@@ -510,8 +500,6 @@ const ClientList: React.FC = () => {
         message: 'Erro ao enviar mensagem: ' + error,
         severity: 'error'
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -638,7 +626,7 @@ const ClientList: React.FC = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                         <IconButton
                           size="small"
-                          onClick={() => sendWhatsAppMessage(client)}
+                          onClick={() => handleSendMessage(client)}
                           sx={{
                             color: '#25D366',
                             '&:hover': {
