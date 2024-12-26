@@ -287,34 +287,19 @@ const ClientList: React.FC = () => {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const handleEditChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string>
+  ) => {
     if (clientToEdit) {
+      const value = e.target.name === 'value' ? parseFloat(e.target.value) || 0 : e.target.value;
       setClientToEdit({
         ...clientToEdit,
-        [name]: value,
+        [e.target.name]: value,
       });
     }
   };
 
-  const handleSelectChange = (e: SelectChangeEvent<string>) => {
-    const { name, value } = e.target;
-    if (clientToEdit) {
-      setClientToEdit({
-        ...clientToEdit,
-        [name]: value,
-      });
-
-      // Se um novo serviço for adicionado, atualize a lista de serviços
-      if (name === 'service' && !services.includes(value)) {
-        const updatedServices = [...services, value];
-        setServices(updatedServices);
-        localStorage.setItem('services', JSON.stringify(updatedServices));
-      }
-    }
-  };
-
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = () => {
     if (clientToEdit) {
       const updatedClients = clients.map(client =>
         client.id === clientToEdit.id ? {
@@ -322,41 +307,15 @@ const ClientList: React.FC = () => {
           value: parseFloat(clientToEdit.value.toString())
         } : client
       );
-
-      try {
-        // Primeiro envia para o backend
-        const response = await fetch('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/charges', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(updatedClients)
-        });
-
-        if (!response.ok) {
-          throw new Error('Erro ao sincronizar com o backend');
-        }
-
-        const updatedClient = await response.json();
-
-        // Depois atualiza o estado e o localStorage
-        setClients(updatedClients);
-        localStorage.setItem('clients', JSON.stringify(updatedClients));
-        setEditMode(false);
-        setClientToEdit(null);
-        setSnackbar({
-          open: true,
-          message: 'Cliente atualizado com sucesso!',
-          severity: 'success'
-        });
-      } catch (error) {
-        console.error('Erro ao atualizar cliente:', error);
-        setSnackbar({
-          open: true,
-          message: 'Erro ao atualizar cliente. Tente novamente.',
-          severity: 'error'
-        });
-      }
+      setClients(updatedClients);
+      localStorage.setItem('clients', JSON.stringify(updatedClients));
+      setEditMode(false);
+      setClientToEdit(null);
+      setSnackbar({
+        open: true,
+        message: 'Cliente atualizado com sucesso!',
+        severity: 'success'
+      });
     }
   };
 
@@ -689,7 +648,7 @@ const ClientList: React.FC = () => {
                 label="Nome"
                 name="name"
                 value={clientToEdit?.name || ''}
-                onChange={handleInputChange}
+                onChange={handleEditChange}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -699,7 +658,7 @@ const ClientList: React.FC = () => {
                 label="WhatsApp"
                 name="whatsapp"
                 value={clientToEdit?.whatsapp || ''}
-                onChange={handleInputChange}
+                onChange={handleEditChange}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -709,7 +668,7 @@ const ClientList: React.FC = () => {
                   labelId="service-label"
                   value={clientToEdit?.service || ''}
                   name="service"
-                  onChange={handleSelectChange}
+                  onChange={handleEditChange}
                   label="Serviço"
                 >
                   {services.map((service) => (
@@ -733,7 +692,7 @@ const ClientList: React.FC = () => {
                 label="Valor"
                 name="value"
                 value={clientToEdit?.value || ''}
-                onChange={handleInputChange}
+                onChange={handleEditChange}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">R$</InputAdornment>,
                 }}
@@ -747,7 +706,7 @@ const ClientList: React.FC = () => {
                 label="Dia de Cobrança"
                 name="billingDay"
                 value={clientToEdit?.billingDay || ''}
-                onChange={handleInputChange}
+                onChange={handleEditChange}
                 inputProps={{ min: 1, max: 31 }}
                 helperText="Digite um dia entre 1 e 31"
               />
@@ -758,7 +717,7 @@ const ClientList: React.FC = () => {
                 <Select
                   value={clientToEdit?.recurrence || ''}
                   name="recurrence"
-                  onChange={handleSelectChange}
+                  onChange={handleEditChange}
                   label="Recorrência"
                 >
                   {RECURRENCE_OPTIONS.map((option) => (
