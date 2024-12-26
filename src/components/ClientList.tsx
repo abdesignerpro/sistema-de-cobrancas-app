@@ -430,13 +430,25 @@ const ClientList: React.FC = () => {
         throw new Error('Erro ao enviar mensagem de texto');
       }
 
-      // Gera e envia o código PIX para cópia
-      const pixUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(apiConfig.pixName)}&cidade=${encodeURIComponent(apiConfig.pixCity)}&valor=${numericValue.toFixed(2)}&saida=br&chave=${encodeURIComponent(apiConfig.pixKey)}&txid=${encodeURIComponent(apiConfig.pixTxid)}`;
-      const pixResponse = await axios.get(pixUrl);
-      
+      // Gera o código PIX e QR Code através do nosso backend
+      const pixResponse = await axios.get(`${process.env.REACT_APP_API_URL}/pix/generate`, {
+        params: {
+          nome: apiConfig.pixName,
+          cidade: apiConfig.pixCity,
+          valor: numericValue.toFixed(2),
+          chave: apiConfig.pixKey,
+          txid: apiConfig.pixTxid
+        }
+      });
+
+      if (!pixResponse.data.success) {
+        throw new Error('Erro ao gerar código PIX');
+      }
+
+      // Envia o código PIX
       const pixCodeMessage = {
         number: phoneNumber,
-        text: `*Código PIX para cópia:*\n\`\`\`${pixResponse.data}\`\`\`\n_Cole este código no seu aplicativo de pagamento para efetuar o PIX._`,
+        text: `*Código PIX para cópia:*\n\`\`\`${pixResponse.data.pixCode}\`\`\`\n_Cole este código no seu aplicativo de pagamento para efetuar o PIX._`,
         apikey: apiConfig.apiKey,
         delay: 2
       };
@@ -448,15 +460,13 @@ const ClientList: React.FC = () => {
         }
       });
 
-      // Gera e envia o QR Code
-      const qrCodeUrl = `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(apiConfig.pixName)}&cidade=${encodeURIComponent(apiConfig.pixCity)}&valor=${numericValue.toFixed(2)}&saida=qr&chave=${encodeURIComponent(apiConfig.pixKey)}&txid=${encodeURIComponent(apiConfig.pixTxid)}`;
-      
+      // Envia o QR Code
       const mediaPayload = {
         number: phoneNumber,
         mediatype: "image",
         mimetype: "image/png",
         caption: '📱 *QR Code para pagamento via PIX*\n_Escaneie este QR Code com seu aplicativo de pagamento._',
-        media: qrCodeUrl,
+        media: pixResponse.data.qrCodeUrl,
         delay: 2,
         apikey: apiConfig.apiKey
       };
