@@ -3,41 +3,32 @@ FROM node:18-alpine AS build
 
 WORKDIR /app
 
-# Copy package files
+# Install dependencies
 COPY package*.json ./
+RUN npm install
 
-# Install dependencies with clean npm cache
-RUN npm ci --only=production && \
-    npm cache clean --force
-
-# Copy source code
+# Copy source code and build
 COPY . .
+RUN npm run build
 
-# Build with reduced size
-RUN npm run build && \
-    rm -rf node_modules
+# Production stage
+FROM nginx:alpine
 
-# Production stage with minimal nginx
-FROM nginx:alpine-slim
-
-# Remove default nginx config and unnecessary files
-RUN rm -rf /etc/nginx/conf.d/* && \
-    rm -rf /usr/share/nginx/html/*
+# Remove default nginx config
+RUN rm -rf /etc/nginx/conf.d/*
 
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy only the built files from build stage
+# Copy built files from build stage
 COPY --from=build /app/build /usr/share/nginx/html
 
 # Make sure nginx can access the files
 RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chmod -R 755 /usr/share/nginx/html && \
-    # Remove unnecessary files
-    rm -rf /var/cache/apk/* && \
-    rm -rf /tmp/*
+    chmod -R 755 /usr/share/nginx/html
 
 # Expose port 80
 EXPOSE 80
 
+# Start nginx
 CMD ["nginx", "-g", "daemon off;"]

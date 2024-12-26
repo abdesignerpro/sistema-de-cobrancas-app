@@ -178,6 +178,7 @@ const ClientList: React.FC = () => {
     message: '',
     severity: 'success' as AlertColor
   });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Carrega os serviços do localStorage
@@ -378,114 +379,115 @@ const ClientList: React.FC = () => {
     }
   };
 
-  const handleSendMessage = async (e: any) => {
+  const sendWhatsAppMessage = async (e: Client) => {
     try {
+      setLoading(true);
       console.log('Iniciando envio de mensagem...');
-      console.log('Dados do cliente:', e);
 
-      // Primeiro busca as configurações do backend
-      const configResponse = await axios.get('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/config');
-      const apiConfig = configResponse.data;
+      // Busca configurações da API
+      const apiConfigResponse = await axios.get('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/config');
+      const apiConfig = apiConfigResponse.data;
 
+      // Valida configurações
       if (!apiConfig.apiUrl || !apiConfig.apiKey || !apiConfig.instanceName) {
-        throw new Error('Configurações da API do WhatsApp não encontradas');
+        throw new Error('Configurações da API incompletas');
       }
 
-      // Formata o valor antes de enviar
-      const numericValue = Number(String(e.value).replace(/[^\d.,]/g, '').replace(',', '.'));
-      const formattedValue = formatValue(e.value);
+      // Formata o número do telefone
+      const phoneNumber = e.whatsapp.replace(/\D/g, '');
+      console.log('Dados do cliente:', e);
+
+      // Gera a mensagem inicial
+      const message = generateMessage(e, apiConfig);
+
+      // Formata o valor para a API do PIX
+      const formattedValue = Number(e.value).toFixed(2);
+      const numericValue = Number(e.value);
       console.log('Valor formatado:', formattedValue);
       console.log('Valor numérico:', numericValue);
 
-      const message = `Olá ${e.name}! 👋\n\n` +
-        `Esperamos que esteja bem! Este é um lembrete sobre seu serviço:\n\n` +
-        `📋 *Detalhes do Serviço*\n` +
-        `☑️ Serviço: ${e.service}\n` +
-        `💰 Valor: ${formattedValue}\n\n` +
-        `💳 *Opções de Pagamento*\n` +
-        `Para sua comodidade, disponibilizamos o pagamento via PIX.\n\n` +
-        `Em instantes enviarei o QR Code e o código PIX para pagamento.`;
+      // Gera o código PIX
+      const pixParams = {
+        nome: apiConfig.pixName,
+        cidade: apiConfig.pixCity,
+        valor: formattedValue,
+        chave: apiConfig.pixKey,
+        txid: apiConfig.pixTxid
+      };
 
+      // Envia a mensagem inicial
       console.log('Mensagem:', message);
-
-      const phoneNumber = e.whatsapp.replace(/\D/g, '');
       console.log('Telefone:', phoneNumber);
 
-      // Primeiro envia a mensagem de texto
-      const textPayload = {
+      const messagePayload = {
         number: phoneNumber,
         text: message,
         apikey: apiConfig.apiKey,
         delay: 2
       };
 
-      const textResponse = await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, textPayload, {
+      // Envia a mensagem inicial
+      await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, messagePayload, {
         headers: {
           'Content-Type': 'application/json',
           'apikey': apiConfig.apiKey
         }
       });
 
-      if (!textResponse.data.status) {
-        throw new Error('Erro ao enviar mensagem de texto');
-      }
+      // Aguarda 2 segundos antes de enviar o QR Code
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Gera o código PIX e QR Code através do nosso backend
-      const pixResponse = await axios.get('https://sistema-de-cobrancas-cobrancas-server.yzgqzv.easypanel.host/pix/generate', {
+      // Gera o QR Code e código PIX
+      const pixResponse = await axios.get('https://gerarqrcodepix.com.br/api/v1', {
         params: {
-          nome: apiConfig.pixName,
-          cidade: apiConfig.pixCity,
-          valor: numericValue.toFixed(2),
-          chave: apiConfig.pixKey,
-          txid: apiConfig.pixTxid
-        }
-      });
-
-      if (!pixResponse.data.success) {
-        throw new Error('Erro ao gerar código PIX');
-      }
-
-      // Envia o código PIX
-      const pixCodeMessage = {
-        number: phoneNumber,
-        text: `*Código PIX para cópia:*\n\`\`\`${pixResponse.data.pixCode}\`\`\`\n_Cole este código no seu aplicativo de pagamento para efetuar o PIX._`,
-        apikey: apiConfig.apiKey,
-        delay: 2
-      };
-
-      await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, pixCodeMessage, {
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': apiConfig.apiKey
+          ...pixParams,
+          saida: 'qr'
         }
       });
 
       // Envia o QR Code
       const mediaPayload = {
         number: phoneNumber,
-        media: pixResponse.data.qrCodeUrl,
-        caption: '📱 *QR Code para pagamento via PIX*\n_Escaneie este QR Code com seu aplicativo de pagamento._',
-        fileName: "qrcode.png",
-        mediatype: "base64",
+        mediatype: "image",
         mimetype: "image/png",
-        delay: 2
+        caption: '📱 *QR Code para pagamento via PIX*\n_Escaneie este QR Code com seu aplicativo de pagamento._',
+        media: `https://gerarqrcodepix.com.br/api/v1?nome=${encodeURIComponent(pixParams.nome)}&cidade=${encodeURIComponent(pixParams.cidade)}&valor=${encodeURIComponent(pixParams.valor)}&saida=qr&chave=${encodeURIComponent(pixParams.chave)}&txid=${encodeURIComponent(pixParams.txid)}`,
+        delay: 2,
+        apikey: apiConfig.apiKey,
+        fileName: ""
       };
 
-      const mediaResponse = await axios.post(`${apiConfig.apiUrl}/message/sendMedia/${apiConfig.instanceName}`, mediaPayload, {
+      await axios.post(`${apiConfig.apiUrl}/message/sendMedia/${apiConfig.instanceName}`, mediaPayload, {
         headers: {
           'Content-Type': 'application/json',
           'apikey': apiConfig.apiKey
         }
       });
 
-      if (!mediaResponse.data.status) {
-        throw new Error('Erro ao enviar QR Code');
-      }
+      // Aguarda 2 segundos antes de enviar o código PIX
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      setSnackbar({
-        open: true,
-        message: 'Mensagem enviada com sucesso!',
-        severity: 'success'
+      // Gera o código PIX para cópia
+      const pixCodeResponse = await axios.get('https://gerarqrcodepix.com.br/api/v1', {
+        params: {
+          ...pixParams,
+          saida: 'br'
+        }
+      });
+
+      // Envia o código PIX
+      const pixCodePayload = {
+        number: phoneNumber,
+        text: `*Código PIX para cópia:*\n\`\`\`${pixCodeResponse.data.brcode}\`\`\`\n_Cole este código no seu aplicativo de pagamento para efetuar o PIX._`,
+        apikey: apiConfig.apiKey,
+        delay: 2
+      };
+
+      await axios.post(`${apiConfig.apiUrl}/message/sendText/${apiConfig.instanceName}`, pixCodePayload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': apiConfig.apiKey
+        }
       });
 
       // Atualiza a data do último envio
@@ -502,6 +504,12 @@ const ClientList: React.FC = () => {
       setClients(updatedClients);
       localStorage.setItem('clients', JSON.stringify(updatedClients));
 
+      setSnackbar({
+        open: true,
+        message: 'Mensagem enviada com sucesso!',
+        severity: 'success'
+      });
+
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       setSnackbar({
@@ -509,6 +517,8 @@ const ClientList: React.FC = () => {
         message: 'Erro ao enviar mensagem',
         severity: 'error'
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -635,7 +645,7 @@ const ClientList: React.FC = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                         <IconButton
                           size="small"
-                          onClick={() => handleSendMessage(client)}
+                          onClick={() => sendWhatsAppMessage(client)}
                           sx={{
                             color: '#25D366',
                             '&:hover': {
