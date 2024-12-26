@@ -463,12 +463,12 @@ const ClientList: React.FC = () => {
       // Envia o QR Code
       const mediaPayload = {
         number: phoneNumber,
-        mediatype: "image",
-        mimetype: "image/png",
-        caption: '📱 *QR Code para pagamento via PIX*\n_Escaneie este QR Code com seu aplicativo de pagamento._',
         media: pixResponse.data.qrCodeUrl,
-        delay: 2,
-        apikey: apiConfig.apiKey
+        caption: '📱 *QR Code para pagamento via PIX*\n_Escaneie este QR Code com seu aplicativo de pagamento._',
+        fileName: "qrcode.png",
+        mediatype: "base64",
+        mimetype: "image/png",
+        delay: 2
       };
 
       const mediaResponse = await axios.post(`${apiConfig.apiUrl}/message/sendMedia/${apiConfig.instanceName}`, mediaPayload, {
